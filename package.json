@@ -1,0 +1,27 @@
+{
+  "name": "codelearn",
+  "version": "0.0.0",
+  "private": true,
+  "description": "CodeLearn - 免费、跨平台、AI 辅助的编程学习平台",
+  "license": "MIT",
+  "workspaces": [
+    "web"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "lint": "pnpm --filter web lint",
+    "preview": "pnpm --filter web preview",
+    "format": "pnpm --filter web format",
+    "tauri:android:init": "tauri android init",
+    "tauri:android:dev": "tauri android dev",
+    "tauri:android:build": "tauri android build",
+    "tauri:ios:init": "tauri ios init",
+    "tauri:ios:dev": "tauri ios dev",
+    "tauri:ios:build": "tauri ios build"
+  },
+  "packageManager": "pnpm@11.11.0",
+  "engines": {
+    "node": ">=18"
+  }
+}

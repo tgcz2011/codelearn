@@ -1,0 +1,31 @@
+# ============================================================
+# Render 部署配置：CodeLearn Go 代码执行服务（Blueprint）
+# 文档：https://render.com/docs/blueprint-spec
+# ============================================================
+# 使用前：
+#   1. 在 Render 控制台 New > Blueprint，选本仓库根目录
+#   2. Render 会读取本文件创建 web service
+#   3. 免费层（free plan）有冷启动与资源限制，生产请升级
+# ============================================================
+
+services:
+  - type: web
+    name: codelearn-go-runner
+    runtime: docker
+    plan: free
+    # Render 区域：oregon / ohio / frankfurt / singapore；free 层可能仅支持部分区域
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: MAX_CONCURRENT
+        value: "10"
+      # 跨域白名单（逗号分隔）；不配则允许所有源
+      # - key: ALLOWED_ORIGINS
+      #   value: https://your-codelearn-web.vercel.app
+      # 内存限制（仅 Linux 生效；注意 Go 运行时虚拟内存特性）
+      # - key: MEM_LIMIT_MB
+      #   value: "512"

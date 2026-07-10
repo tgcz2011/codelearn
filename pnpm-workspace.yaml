@@ -1,0 +1,7 @@
+packages:
+  - 'web'
+
+# pnpm 11 通过 allowBuilds 显式批准需要执行 install/postinstall 脚本的依赖
+# esbuild 是 Vite 的依赖，需运行其 postinstall 以完成平台二进制链接
+allowBuilds:
+  esbuild: true
