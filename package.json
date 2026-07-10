@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "CodeLearn - 免费、跨平台、AI 辅助的编程学习平台",
-  "license": "MIT",
+  "license": "GPL-3.0",
   "workspaces": [
     "web"
   ],
@@ -22,6 +22,6 @@
   },
   "packageManager": "pnpm@11.11.0",
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   }
 }
