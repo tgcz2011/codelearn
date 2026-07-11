@@ -212,6 +212,35 @@ jobs:
   # ============================================================
   # SubTask 11.6: 自动创建 GitHub Release 并上传全平台产物
   # ============================================================
+  deploy-pages:
+    name: 🚀 Deploy to GitHub Pages
+    needs: [web-build]
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download web artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web-dist
+
+      - name: Unzip web build
+        run: unzip web-dist/codelearn-web.zip -d public
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
   release:
     name: 📦 Create Release
     needs: [web-build, macos-build, windows-build, mobile-build]
@@ -249,6 +278,15 @@ jobs:
           name: ${{ steps.tag.outputs.name }}
           prerelease: ${{ steps.tag.outputs.prerelease }}
           generate_release_notes: true
+          body: |
+            ## Web 版在线体验
+            👉 https://tgcz2011.github.io/codelearn/
+
+            ## 下载安装
+            - **macOS**: 下载 `.dmg` 文件
+            - **Windows**: 下载 `.msi` 或 `.exe` 安装包
+            - **Android**: 下载 `.apk`（未签名）
+            - **Web**: 下载 `codelearn-web.zip`，需通过 HTTP 服务器访问（不能直接双击打开）
           files: |
             artifacts/web-dist/**
             artifacts/macos-build/**
