@@ -276,10 +276,12 @@ jobs:
             echo "name=${TAG}" >> "$GITHUB_OUTPUT"
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           else
+            # main 分支 push：正式 release，tag 用日期+sha
+            DATE=$(date -u +%Y%m%d)
             SHA_SHORT="${GITHUB_SHA::7}"
-            echo "tag=dev-${SHA_SHORT}" >> "$GITHUB_OUTPUT"
-            echo "name=Dev Build ${SHA_SHORT}" >> "$GITHUB_OUTPUT"
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "tag=v${DATE}-${SHA_SHORT}" >> "$GITHUB_OUTPUT"
+            echo "name=Release ${DATE} (${SHA_SHORT})" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: List artifacts
