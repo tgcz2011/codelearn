@@ -15,6 +15,6 @@ export type {
   UserProgress,
 } from './types'
 export type { DataRepository } from './DataRepository'
-export type { AuthService, AuthSession } from './AuthService'
+export type { AuthService, AuthSession, LinkedIdentity } from './AuthService'
 export type { StorageService } from './StorageService'
 export type { RealtimeService, RealtimeFilter, RealtimePayload } from './RealtimeService'

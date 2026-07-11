@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Card from '@/components/ui/Card'
+import { normalizeOAuthError } from '@/utils/oauthError'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -55,7 +56,7 @@ export default function RegisterPage() {
     setOauthError(null)
     const { error } = await signInWithOAuth('github')
     if (error) {
-      setOauthError(error)
+      setOauthError(normalizeOAuthError(error))
     }
   }
 

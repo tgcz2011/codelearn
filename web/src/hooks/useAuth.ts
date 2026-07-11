@@ -11,22 +11,30 @@ export function useAuth() {
   const isAdmin = useAuthStore((s) => s.isAdmin)
   const loading = useAuthStore((s) => s.loading)
   const backendAvailable = useAuthStore((s) => s.backendAvailable)
+  const identities = useAuthStore((s) => s.identities)
   const signIn = useAuthStore((s) => s.signIn)
   const signUp = useAuthStore((s) => s.signUp)
   const signInWithOAuth = useAuthStore((s) => s.signInWithOAuth)
   const signOut = useAuthStore((s) => s.signOut)
   const initAuth = useAuthStore((s) => s.initAuth)
+  const refreshIdentities = useAuthStore((s) => s.refreshIdentities)
+  const linkGitHub = useAuthStore((s) => s.linkGitHub)
+  const unlinkIdentity = useAuthStore((s) => s.unlinkIdentity)
 
   return {
     user,
     isAdmin,
     loading,
     backendAvailable,
+    identities,
     isAuthenticated: Boolean(user),
     signIn,
     signUp,
     signInWithOAuth,
     signOut,
     initAuth,
+    refreshIdentities,
+    linkGitHub,
+    unlinkIdentity,
   }
 }

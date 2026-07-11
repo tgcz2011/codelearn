@@ -8,7 +8,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { services } from '@/services/container'
-import type { AuthSession } from '@/services/interfaces'
+import type { AuthSession, LinkedIdentity } from '@/services/interfaces'
 
 export interface AuthUser {
   id: string
@@ -21,6 +21,8 @@ export interface AuthState {
   loading: boolean
   /** 后端是否可用（未配置 Supabase 时为 false，用于友好提示） */
   backendAvailable: boolean
+  /** 当前用户已绑定的身份列表（邮箱/GitHub 等） */
+  identities: LinkedIdentity[]
   initAuth: () => Promise<void>
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signUp: (
@@ -31,6 +33,12 @@ export interface AuthState {
   signOut: () => Promise<void>
   /** 内部：根据会话刷新 user/isAdmin */
   applySession: (session: AuthSession) => Promise<void>
+  /** 拉取当前用户已绑定的身份列表 */
+  refreshIdentities: () => Promise<void>
+  /** 当前用户主动绑定 GitHub（需已登录） */
+  linkGitHub: () => Promise<{ error: string | null }>
+  /** 解绑指定身份（保留至少一个） */
+  unlinkIdentity: (identityId: string) => Promise<{ error: string | null }>
 }
 
 /** 判断错误是否为后端未配置类（环境变量缺失/网络不可达） */
@@ -56,6 +64,7 @@ export const useAuthStore = create<AuthState>()(
       isAdmin: false,
       loading: true,
       backendAvailable: true,
+      identities: [],
 
       applySession: async (session) => {
         if (session.user) {
@@ -72,14 +81,53 @@ export const useAuthStore = create<AuthState>()(
           // 同步复习 store 的 userId，加载复习计划 + 订阅实时变更
           const { useReviewStore } = await import('./reviewStore')
           useReviewStore.getState().setUserId(session.user.id)
+          // 登录后异步拉取已绑定的身份列表（不阻塞主流程）
+          void get().refreshIdentities()
         } else {
-          set({ user: null, isAdmin: false, loading: false })
+          set({ user: null, isAdmin: false, loading: false, identities: [] })
           // 退出登录：重置进度 store 为本地模式
           const { useProgressStore } = await import('./progressStore')
           useProgressStore.getState().setUserId('local-user')
           // 退出登录：重置复习 store 为本地模式
           const { useReviewStore } = await import('./reviewStore')
           useReviewStore.getState().setUserId('local-user')
+        }
+      },
+
+      refreshIdentities: async () => {
+        try {
+          const list = await services.authService.getLinkedIdentities()
+          set({ identities: list })
+        } catch {
+          // 静默失败：身份列表非关键路径
+        }
+      },
+
+      linkGitHub: async () => {
+        try {
+          const { error } = await services.authService.linkGitHub()
+          if (error) {
+            set({ backendAvailable: !isBackendUnavailable(error) })
+            return { error }
+          }
+          // 成功时浏览器会被重定向，无需本地刷新
+          return { error: null }
+        } catch (e) {
+          set({ backendAvailable: !isBackendUnavailable(e) })
+          return { error: formatError(e) }
+        }
+      },
+
+      unlinkIdentity: async (identityId) => {
+        try {
+          const { error } =
+            await services.authService.unlinkIdentity(identityId)
+          if (error) return { error }
+          // 解绑成功后刷新身份列表
+          await get().refreshIdentities()
+          return { error: null }
+        } catch (e) {
+          return { error: formatError(e) }
         }
       },
 
@@ -163,7 +211,7 @@ export const useAuthStore = create<AuthState>()(
         } catch {
           // 忽略登出失败，仍清理本地状态
         }
-        set({ user: null, isAdmin: false })
+        set({ user: null, isAdmin: false, identities: [] })
       },
     }),
     {

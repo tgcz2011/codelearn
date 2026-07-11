@@ -44,7 +44,7 @@ export default function CourseManagement() {
       }
 
       // 加载课程完成统计
-      let lessonStats: Record<string, number> = {}
+      const lessonStats: Record<string, number> = {}
       try {
         const { data: statsData, error: statsError } = await supabase.rpc(
           'get_course_stats',

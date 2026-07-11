@@ -20,7 +20,7 @@ CodeLearn 是一个开源的编程学习平台，支持 **Web / macOS / Windows 
   - `wasm` 浏览器内 WASM / iframe 执行（Pyodide、浏览器内 TS 编译器、HTML 预览）
   - `remote` 远程服务执行（通过 Supabase Edge Function 代理 OnlineCompiler.io，支持 Python / Go / TypeScript / Java / C / C++ / Rust）
 - **AI 辅助**：渐进式提示、代码解释、动态练习生成；平台共享 Key（每日免费额度）+ 用户自定义 Key（OpenAI / DeepSeek / Ollama 等 OpenAI 兼容协议）。
-- **多种登录方式**：邮箱密码注册登录 + GitHub OAuth 第三方登录。
+- **多种登录方式**：邮箱密码注册登录 + GitHub OAuth 第三方登录，支持邮箱与 GitHub 账号绑定（同一账号多方式登录，进度/余额共享，含冲突处理）。
 - **自动管理员**：第一个注册的用户自动成为管理员，拥有用户管理和数据库管理面板。
 - **多用户管理**：学习进度云端同步、管理员用户管理（启用/禁用、额度重置）、数据库重置（测试阶段）。
 - **国际化（i18n）**：中文 / English 双语，localStorage 持久化。
@@ -150,6 +150,19 @@ Python / Go / TypeScript / Java / C / C++ / Rust 的代码通过 OnlineCompiler.
 2. **在 Supabase 中配置**：Dashboard → Authentication → Providers → GitHub，填入 Client ID 和 Client Secret。
 3. **启用**：打开 GitHub provider 开关。
 4. 登录页和注册页会显示"使用 GitHub 登录/注册"按钮。
+
+### 账号关联（邮箱 ↔ GitHub 绑定）
+
+支持将「邮箱+密码」账号与「GitHub」账号绑定到同一用户，绑定后可用任一方式登录同一账号，学习进度、余额、复习计划完全共享。
+
+1. **启用 Manual Linking**：Supabase Dashboard → Authentication → Sign In / Providers → 打开「Enable Manual Linking」开关。账号关联功能依赖此开关，否则 `linkIdentity` / `unlinkIdentity` 调用会被后端拒绝。
+2. **绑定流程**：用户先用邮箱登录 → 进入「设置 → 账号关联」→ 点击「绑定 GitHub」→ 跳转 GitHub 授权 → 回调后该 GitHub 身份被加到当前账号。
+3. **解绑**：在「账号关联」卡片点击「解绑」即可。系统会保护最后一个身份，避免账号无法登录。
+4. **冲突处理**：
+   - 若 GitHub 账号的邮箱已被其他账号占用：需先登录该占用账号解绑 GitHub，或换一个 GitHub 账号。
+   - 若之前用 GitHub 直接登录生成了独立账号（同邮箱不同 ID）：请先登录该 GitHub 账号解绑，再用邮箱登录后重新绑定。
+   - 登录页点击 GitHub 登录若返回「邮箱已注册」错误，会提示用户先邮箱登录再去设置绑定。
+5. **数据库迁移**：`supabase/migrations/20260712000001_account_linking.sql` 提供了 `get_my_identities()` / `get_my_primary_email()` / `count_my_identities()` 三个 RPC，前端用于展示已绑定身份；同时让 `handle_new_user()` 幂等，避免重复插入 profile。
 
 ### AI 服务配置（可选）
 

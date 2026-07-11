@@ -14,12 +14,44 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+# 计算 App 版本号：main 分支 push → 0.YYYYMMDD.sha；tag push → tag 本身去掉 v 前缀
+# 各 build job 通过 needs: version 依赖此 job，通过 outputs 获取版本号注入 tauri.conf.json / Cargo.toml
 jobs:
+  version:
+    name: 📋 Compute Version
+    runs-on: ubuntu-latest
+    outputs:
+      app_version: ${{ steps.ver.outputs.app_version }}
+      tag: ${{ steps.ver.outputs.tag }}
+      name: ${{ steps.ver.outputs.name }}
+    steps:
+      - name: Compute version
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            # v1.2.3 → 1.2.3
+            APP_VERSION="${TAG#v}"
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+            echo "name=${TAG}" >> "$GITHUB_OUTPUT"
+          else
+            DATE=$(date -u +%Y%m%d)
+            SHA_SHORT="${GITHUB_SHA::7}"
+            TAG="v${DATE}-${SHA_SHORT}"
+            # semver 兼容：0.YYYYMMDD.sha
+            APP_VERSION="0.${DATE}.${SHA_SHORT}"
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+            echo "name=Release ${DATE} (${SHA_SHORT})" >> "$GITHUB_OUTPUT"
+          fi
+          echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Computed app_version=${APP_VERSION}, tag=${TAG}"
+
   # ============================================================
   # SubTask 11.2: Web 构建（Vite build → 上传到 Release）
   # ============================================================
   web-build:
     name: 🌐 Web Build
+    needs: version
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -60,10 +92,23 @@ jobs:
   # ============================================================
   macos-build:
     name: 🍎 macOS Build
+    needs: version
     runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Inject app version
+        env:
+          APP_VERSION: ${{ needs.version.outputs.app_version }}
+        run: |
+          # 更新 tauri.conf.json 版本号
+          sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"${APP_VERSION}\"/" src-tauri/tauri.conf.json
+          # 更新 Cargo.toml 版本号
+          sed -i '' "s/^version = \"[^\"]*\"/version = \"${APP_VERSION}\"/" src-tauri/Cargo.toml
+          echo "Injected version: ${APP_VERSION}"
+          grep '"version"' src-tauri/tauri.conf.json
+          grep '^version' src-tauri/Cargo.toml
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
@@ -106,10 +151,23 @@ jobs:
   # ============================================================
   windows-build:
     name: 🪟 Windows Build
+    needs: version
     runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Inject app version
+        shell: bash
+        env:
+          APP_VERSION: ${{ needs.version.outputs.app_version }}
+        run: |
+          # 更新 tauri.conf.json 版本号（Windows bash 用 sed -i 不带空串参数）
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${APP_VERSION}\"/" src-tauri/tauri.conf.json
+          sed -i "s/^version = \"[^\"]*\"/version = \"${APP_VERSION}\"/" src-tauri/Cargo.toml
+          echo "Injected version: ${APP_VERSION}"
+          grep '"version"' src-tauri/tauri.conf.json
+          grep '^version' src-tauri/Cargo.toml
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
@@ -154,11 +212,20 @@ jobs:
   # ============================================================
   mobile-build:
     name: 📱 Mobile Build (Optional)
+    needs: version
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Inject app version
+        env:
+          APP_VERSION: ${{ needs.version.outputs.app_version }}
+        run: |
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${APP_VERSION}\"/" src-tauri/tauri.conf.json
+          sed -i "s/^version = \"[^\"]*\"/version = \"${APP_VERSION}\"/" src-tauri/Cargo.toml
+          echo "Injected version: ${APP_VERSION}"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
@@ -257,7 +324,7 @@ jobs:
 
   release:
     name: 📦 Create Release
-    needs: [web-build, macos-build, windows-build, mobile-build]
+    needs: [version, web-build, macos-build, windows-build, mobile-build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -267,32 +334,15 @@ jobs:
         with:
           path: artifacts
 
-      - name: Determine release tag
-        id: tag
-        run: |
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            TAG="${GITHUB_REF#refs/tags/}"
-            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-            echo "name=${TAG}" >> "$GITHUB_OUTPUT"
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
-          else
-            # main 分支 push：正式 release，tag 用日期+sha
-            DATE=$(date -u +%Y%m%d)
-            SHA_SHORT="${GITHUB_SHA::7}"
-            echo "tag=v${DATE}-${SHA_SHORT}" >> "$GITHUB_OUTPUT"
-            echo "name=Release ${DATE} (${SHA_SHORT})" >> "$GITHUB_OUTPUT"
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: List artifacts
         run: find artifacts -type f
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.tag }}
-          name: ${{ steps.tag.outputs.name }}
-          prerelease: ${{ steps.tag.outputs.prerelease }}
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: ${{ needs.version.outputs.name }}
+          prerelease: false
           generate_release_notes: true
           body: |
             ## Web 版在线体验
