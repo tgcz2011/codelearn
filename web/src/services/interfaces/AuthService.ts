@@ -12,6 +12,8 @@ export interface AuthSession {
 export interface AuthService {
   signUp(email: string, password: string): Promise<{ error: string | null }>
   signIn(email: string, password: string): Promise<{ error: string | null }>
+  /** 通过第三方 OAuth 登录（如 GitHub） */
+  signInWithOAuth(provider: string): Promise<{ error: string | null }>
   signOut(): Promise<void>
   getSession(): Promise<AuthSession>
   /** 订阅认证状态变化，返回取消订阅函数 */

@@ -128,6 +128,7 @@ $$;
 -- ============================================================
 -- 函数：handle_new_user() —— 新用户注册自动创建 profile
 -- SECURITY DEFINER：注册时用户尚无 profiles 写权限
+-- 第一个注册的用户自动设为 admin
 -- ============================================================
 create or replace function public.handle_new_user()
 returns trigger
@@ -135,12 +136,16 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  user_count integer;
 begin
-  insert into public.profiles (id, email, display_name)
+  select count(*) into user_count from public.profiles;
+  insert into public.profiles (id, email, display_name, is_admin)
   values (
     new.id,
     coalesce(new.email, ''),
-    coalesce(new.raw_user_meta_data->>'display_name', '')
+    coalesce(new.raw_user_meta_data->>'display_name', ''),
+    (user_count = 0)  -- 第一个用户自动设为 admin
   );
   return new;
 end;

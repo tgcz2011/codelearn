@@ -27,6 +27,7 @@ export interface AuthState {
     email: string,
     password: string,
   ) => Promise<{ error: string | null }>
+  signInWithOAuth: (provider: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   /** 内部：根据会话刷新 user/isAdmin */
   applySession: (session: AuthSession) => Promise<void>
@@ -65,8 +66,14 @@ export const useAuthStore = create<AuthState>()(
             admin = false
           }
           set({ user: session.user, isAdmin: admin, loading: false })
+          // 同步进度 store 的 userId，启动实时同步 + 全量加载进度
+          const { useProgressStore } = await import('./progressStore')
+          useProgressStore.getState().setUserId(session.user.id)
         } else {
           set({ user: null, isAdmin: false, loading: false })
+          // 退出登录：重置进度 store 为本地模式
+          const { useProgressStore } = await import('./progressStore')
+          useProgressStore.getState().setUserId('local-user')
         }
       },
 
@@ -122,6 +129,21 @@ export const useAuthStore = create<AuthState>()(
             set({ backendAvailable: !isBackendUnavailable(error) })
             return { error }
           }
+          return { error: null }
+        } catch (e) {
+          set({ backendAvailable: !isBackendUnavailable(e) })
+          return { error: formatError(e) }
+        }
+      },
+
+      signInWithOAuth: async (provider) => {
+        try {
+          const { error } = await services.authService.signInWithOAuth(provider)
+          if (error) {
+            set({ backendAvailable: !isBackendUnavailable(error) })
+            return { error }
+          }
+          // OAuth 重定向后会自动通过 onAuthChange 恢复会话
           return { error: null }
         } catch (e) {
           set({ backendAvailable: !isBackendUnavailable(e) })

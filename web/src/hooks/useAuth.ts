@@ -13,6 +13,7 @@ export function useAuth() {
   const backendAvailable = useAuthStore((s) => s.backendAvailable)
   const signIn = useAuthStore((s) => s.signIn)
   const signUp = useAuthStore((s) => s.signUp)
+  const signInWithOAuth = useAuthStore((s) => s.signInWithOAuth)
   const signOut = useAuthStore((s) => s.signOut)
   const initAuth = useAuthStore((s) => s.initAuth)
 
@@ -24,6 +25,7 @@ export function useAuth() {
     isAuthenticated: Boolean(user),
     signIn,
     signUp,
+    signInWithOAuth,
     signOut,
     initAuth,
   }

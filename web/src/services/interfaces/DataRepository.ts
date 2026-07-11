@@ -52,4 +52,8 @@ export interface DataRepository {
     provider: string,
     encryptedKey: string,
   ): Promise<void>
+
+  // ---- 数据库管理（仅管理员） ----
+  /** 重置数据库：清空所有用户进度、AI额度、非管理员用户 */
+  resetDatabase(): Promise<{ success: boolean; deletedUsers: number; message: string }>
 }

@@ -31,6 +31,16 @@ export class SupabaseAuthService implements AuthService {
     if (error) throw error
   }
 
+  async signInWithOAuth(provider: string): Promise<{ error: string | null }> {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: provider as 'github',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    })
+    return { error: error ? error.message : null }
+  }
+
   async getSession(): Promise<AuthSession> {
     const {
       data: { session },

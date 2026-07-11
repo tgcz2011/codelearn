@@ -278,4 +278,16 @@ export class SupabaseRepository implements DataRepository {
       )
     if (error) throw error
   }
+
+  // ---- 数据库管理 ----
+  async resetDatabase(): Promise<{ success: boolean; deletedUsers: number; message: string }> {
+    const { data, error } = await supabase.rpc('reset_database')
+    if (error) throw error
+    const result = data as { success: boolean; deleted_users: number; message: string }
+    return {
+      success: result.success,
+      deletedUsers: result.deleted_users,
+      message: result.message,
+    }
+  }
 }

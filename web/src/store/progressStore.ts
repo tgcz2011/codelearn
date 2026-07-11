@@ -4,13 +4,14 @@
  * 职责：
  * - 管理当前用户的学习进度（哪些课节已完成）
  * - 通过 services.repository.saveProgress / getProgress 持久化到后端
+ * - 通过 services.realtimeService 订阅 user_progress 表变更，实现跨设备实时同步
  * - Supabase 未配置时（缺少 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY），
  *   services.container 初始化会抛错——此时仅更新本地内存 + localStorage，不报错
  *
- * 不直接 import @supabase/supabase-js，通过 DataRepository 接口访问后端。
+ * 不直接 import @supabase/supabase-js，通过 DataRepository / RealtimeService 接口访问后端。
  */
 import { create } from 'zustand'
-import type { DataRepository } from '@/services/interfaces'
+import type { DataRepository, RealtimeService, RealtimePayload } from '@/services/interfaces'
 
 /** localStorage key：本地进度缓存 */
 const LS_KEY = 'codelearn_progress'
@@ -55,6 +56,25 @@ async function getRepo(): Promise<DataRepository | null> {
   }
 }
 
+/**
+ * 懒加载 RealtimeService。
+ */
+let _realtime: RealtimeService | null | undefined
+async function getRealtime(): Promise<RealtimeService | null> {
+  if (_realtime !== undefined) return _realtime
+  try {
+    const mod = await import('@/services/container')
+    _realtime = mod.services.realtimeService
+    return _realtime
+  } catch {
+    _realtime = null
+    return null
+  }
+}
+
+/** 当前 realtime 订阅的取消函数 */
+let _unsubscribeRealtime: (() => void) | null = null
+
 /** 进度 store 接口 */
 export interface ProgressState {
   /** lessonId → 是否完成 */
@@ -66,11 +86,15 @@ export interface ProgressState {
 
   /** 标记某课节完成 */
   markComplete: (lessonId: string, codeSnapshot?: string) => Promise<void>
+  /** 标记某课节未完成 */
+  markIncomplete: (lessonId: string) => Promise<void>
   /** 加载某课程全部课节的进度 */
   loadProgress: (courseSlug: string) => Promise<void>
+  /** 加载所有课程的所有进度（登录时调用） */
+  loadAllProgress: () => Promise<void>
   /** 检查某课节是否已完成 */
   isCompleted: (lessonId: string) => boolean
-  /** 设置当前用户 ID */
+  /** 设置当前用户 ID 并启动/停止实时同步 */
   setUserId: (userId: string) => void
 }
 
@@ -83,6 +107,14 @@ async function getLessonIds(courseSlug: string): Promise<string[]> {
   const course = getCourseBySlug(courseSlug)
   if (!course) return []
   return course.chapters.flatMap((ch) => ch.lessons.map((l) => l.id))
+}
+
+/**
+ * 获取所有课程的所有 lesson id。
+ */
+async function getAllLessonIds(): Promise<string[]> {
+  const { courses } = await import('@/courses')
+  return courses.flatMap((c) => c.chapters.flatMap((ch) => ch.lessons.map((l) => l.id)))
 }
 
 export const useProgressStore = create<ProgressState>((set, get) => ({
@@ -112,6 +144,29 @@ export const useProgressStore = create<ProgressState>((set, get) => ({
       })
     } catch {
       // 后端写入失败时静默降级（本地状态已更新）
+    }
+  },
+
+  markIncomplete: async (lessonId: string) => {
+    // 先更新本地状态
+    set((state) => {
+      const completed = { ...state.completed, [lessonId]: false }
+      saveLocalProgress(completed)
+      return { completed }
+    })
+
+    const repo = await getRepo()
+    if (!repo) return
+
+    try {
+      const { userId } = get()
+      await repo.saveProgress(userId, lessonId, {
+        completed: false,
+        completed_at: null,
+        code_snapshot: null,
+      })
+    } catch {
+      // 静默降级
     }
   },
 
@@ -150,11 +205,84 @@ export const useProgressStore = create<ProgressState>((set, get) => ({
     }
   },
 
+  loadAllProgress: async () => {
+    set({ loading: true })
+
+    const allLessonIds = await getAllLessonIds()
+
+    const repo = await getRepo()
+    if (!repo) {
+      set({ loading: false })
+      return
+    }
+
+    try {
+      const { userId } = get()
+      const results = await Promise.all(
+        allLessonIds.map(async (id) => {
+          try {
+            const p = await repo.getProgress(userId, id)
+            return [id, p?.completed ?? false] as const
+          } catch {
+            return [id, false] as const
+          }
+        }),
+      )
+      const completed: Record<string, boolean> = {}
+      for (const [id, done] of results) {
+        completed[id] = done
+      }
+      saveLocalProgress(completed)
+      set({ completed, loading: false })
+    } catch {
+      set({ loading: false })
+    }
+  },
+
   isCompleted: (lessonId: string) => {
     return get().completed[lessonId] === true
   },
 
   setUserId: (userId: string) => {
     set({ userId })
+
+    // 取消旧的实时订阅
+    if (_unsubscribeRealtime) {
+      _unsubscribeRealtime()
+      _unsubscribeRealtime = null
+    }
+
+    // 登录用户启动实时同步 + 全量加载进度
+    if (userId !== 'local-user') {
+      // 异步加载所有进度
+      void get().loadAllProgress()
+
+      // 订阅 user_progress 表变更（仅当前用户）
+      void (async () => {
+        const realtime = await getRealtime()
+        if (!realtime) return
+
+        _unsubscribeRealtime = realtime.subscribe(
+          `user_progress:${userId}`,
+          { table: 'user_progress', filter: `user_id=eq.${userId}` },
+          (payload: RealtimePayload) => {
+            const record = payload.record ?? payload.old_record
+            const lessonId = record?.lesson_id as string | undefined
+            const completed = record?.completed as boolean | undefined
+            if (!lessonId) return
+
+            // 实时更新本地状态
+            set((state) => {
+              const newCompleted = {
+                ...state.completed,
+                [lessonId]: completed ?? false,
+              }
+              saveLocalProgress(newCompleted)
+              return { completed: newCompleted }
+            })
+          },
+        )
+      })()
+    }
   },
 }))

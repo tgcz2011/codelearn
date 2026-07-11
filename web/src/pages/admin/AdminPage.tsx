@@ -1,14 +1,15 @@
 /**
  * 管理员后台框架
  *
- * 侧边栏导航：用户管理（已实现）、课程管理（占位）、额度配置（占位）。
+ * 侧边栏导航：用户管理、数据库管理（已实现）、课程管理（占位）、额度配置（占位）。
  * 内容区按当前选中菜单渲染对应组件。
  */
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import UserManagement from './UserManagement'
+import DatabaseManagement from './DatabaseManagement'
 
-type MenuKey = 'users' | 'courses' | 'quota'
+type MenuKey = 'users' | 'database' | 'courses' | 'quota'
 
 interface MenuItem {
   key: MenuKey
@@ -19,8 +20,9 @@ interface MenuItem {
 
 const MENUS: MenuItem[] = [
   { key: 'users', label: '用户管理', desc: '查看与禁用用户、重置额度', enabled: true },
-  { key: 'courses', label: '课程管理', desc: 'Task 6 实现', enabled: false },
-  { key: 'quota', label: '额度配置', desc: 'Task 7 实现', enabled: false },
+  { key: 'database', label: '数据库管理', desc: '重置数据库（测试用）', enabled: true },
+  { key: 'courses', label: '课程管理', desc: '即将实现', enabled: false },
+  { key: 'quota', label: '额度配置', desc: '即将实现', enabled: false },
 ]
 
 export default function AdminPage() {
@@ -31,6 +33,8 @@ export default function AdminPage() {
   let content: ReactNode
   if (active === 'users') {
     content = <UserManagement />
+  } else if (active === 'database') {
+    content = <DatabaseManagement />
   } else {
     content = (
       <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
