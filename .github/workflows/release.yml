@@ -14,7 +14,8 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
-# 计算 App 版本号：main 分支 push → 0.YYYYMMDD.sha；tag push → tag 本身去掉 v 前缀
+# 计算 App 版本号：main 分支 push → 0.YYYYMMDD.RUN_NUMBER（合法 semver，全数字）；
+# tag push → tag 本身去掉 v 前缀（须为合法 semver 如 v1.2.3 → 1.2.3）
 # 各 build job 通过 needs: version 依赖此 job，通过 outputs 获取版本号注入 tauri.conf.json / Cargo.toml
 jobs:
   version:
@@ -30,16 +31,18 @@ jobs:
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             TAG="${GITHUB_REF#refs/tags/}"
-            # v1.2.3 → 1.2.3
+            # v1.2.3 → 1.2.3（tag 须为合法 semver）
             APP_VERSION="${TAG#v}"
             echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
             echo "name=${TAG}" >> "$GITHUB_OUTPUT"
           else
             DATE=$(date -u +%Y%m%d)
             SHA_SHORT="${GITHUB_SHA::7}"
+            # 版本号必须是合法 semver（MAJOR.MINOR.PATCH 全数字），
+            # 用 github.run_number 保证每次 push 递增且唯一
+            APP_VERSION="0.${DATE}.${GITHUB_RUN_NUMBER}"
+            # tag 仍保留 sha 以便追溯（tag 名不要求 semver）
             TAG="v${DATE}-${SHA_SHORT}"
-            # semver 兼容：0.YYYYMMDD.sha
-            APP_VERSION="0.${DATE}.${SHA_SHORT}"
             echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
             echo "name=Release ${DATE} (${SHA_SHORT})" >> "$GITHUB_OUTPUT"
           fi
