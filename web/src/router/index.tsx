@@ -1,7 +1,7 @@
 /**
  * 路由配置
  *
- * 使用 <Routes> 声明式路由（搭配 main.tsx 中的 <BrowserRouter>）。
+ * 使用 <Routes> 声明式路由（搭配 main.tsx 中的 <HashRouter>）。
  * - /login、/register：公开页面
  * - / 及其余业务页：经 ProtectedRoute 守卫，未登录跳转 /login
  * - /admin：额外要求管理员权限

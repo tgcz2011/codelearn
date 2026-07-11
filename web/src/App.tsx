@@ -7,7 +7,7 @@
  * 3. 渲染路由树（路由定义在 @/router）。
  * 4. 移动端在底部渲染 BottomNav 替代页面内导航（Task 10）。
  *
- * main.tsx 用 <BrowserRouter> 包裹本组件；Task 9 在外层套 i18n provider。
+ * main.tsx 用 <HashRouter> 包裹本组件；Task 9 在外层套 i18n provider。
  */
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'

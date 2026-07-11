@@ -4,6 +4,8 @@ import { fileURLToPath, URL } from 'node:url'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // 相对路径，确保直接打开 index.html（file://）或部署到子路径时资源可加载
+  base: './',
   plugins: [react()],
   resolve: {
     alias: {

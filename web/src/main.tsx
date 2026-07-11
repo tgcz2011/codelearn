@@ -1,17 +1,17 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { HashRouter } from 'react-router-dom'
 import AppProviders from '@/providers/AppProviders'
 import App from './App'
 import './index.css'
 
-// AppProviders 提供 i18n + 主题同步；BrowserRouter 提供路由上下文
+// HashRouter：在 file://、tauri://、http:// 等所有协议下均可用，无需服务器 SPA fallback
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <AppProviders>
-      <BrowserRouter>
+      <HashRouter>
         <App />
-      </BrowserRouter>
+      </HashRouter>
     </AppProviders>
   </React.StrictMode>,
 )
