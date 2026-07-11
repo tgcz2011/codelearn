@@ -79,7 +79,13 @@ export class OpenAICompatibleProvider implements AIProvider {
       if (content === null) {
         return { content: '', error: 'AI 返回格式异常，未能解析到内容。' }
       }
-      return { content }
+      const usage = extractUsage(data)
+      return {
+        content,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        model: options?.model ?? this.defaultModel,
+      }
     } catch (e) {
       return { content: '', error: mapNetworkError(e) }
     } finally {
@@ -130,6 +136,18 @@ function extractContent(data: unknown): string | null {
   if (typeof message !== 'object' || message === null) return null
   const content = (message as { content?: unknown }).content
   return typeof content === 'string' ? content : null
+}
+
+/** 从 OpenAI 兼容响应中提取 token 用量 */
+function extractUsage(data: unknown): { inputTokens?: number; outputTokens?: number } {
+  if (typeof data !== 'object' || data === null) return {}
+  const usage = (data as { usage?: unknown }).usage
+  if (typeof usage !== 'object' || usage === null) return {}
+  const u = usage as { prompt_tokens?: unknown; completion_tokens?: unknown }
+  return {
+    inputTokens: typeof u.prompt_tokens === 'number' ? u.prompt_tokens : undefined,
+    outputTokens: typeof u.completion_tokens === 'number' ? u.completion_tokens : undefined,
+  }
 }
 
 /** 将 HTTP 状态码映射为友好错误信息 */

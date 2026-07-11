@@ -18,6 +18,7 @@ import CoursesPage from '@/pages/course/CoursesPage'
 import CourseDetailPage from '@/pages/course/CourseDetailPage'
 import LessonPage from '@/pages/course/LessonPage'
 import ReviewPage from '@/pages/review/ReviewPage'
+import StatsPage from '@/pages/StatsPage'
 import SettingsPage from '@/pages/SettingsPage'
 import AdminPage from '@/pages/admin/AdminPage'
 import NotFoundPage from '@/pages/NotFoundPage'
@@ -67,6 +68,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <ReviewPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/stats"
+        element={
+          <ProtectedRoute>
+            <StatsPage />
           </ProtectedRoute>
         }
       />

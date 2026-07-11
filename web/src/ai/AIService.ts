@@ -1,15 +1,14 @@
 /**
- * AI 高层服务封装（SubTask 7.3）
+ * AI 高层服务封装
  *
  * 职责：
  * 1. 选择 Provider：优先使用用户自定义 Key（localStorage），其次平台共享 Key（环境变量）。
- * 2. 在调用前校验额度（仅共享 Key 消耗额度，自定义 Key 不消耗）。
- * 3. 暴露 getHint / explainCode / generateExercise 三个业务方法。
+ * 2. 金额制计费：共享 Key 调用消耗用户余额（USD），按实际 token 用量计费。
+ * 3. 调用日志：每次调用都记录到 api_usage_log（含 token 用量、费用、模型信息）。
+ * 4. 融合模式：可选启用，多个候选模型并行回答，由裁判模型选出最佳答案。
  *
- * 安全权衡：本期用户自定义 API Key 存储在 localStorage（key: 'codelearn_ai_key'），
- * 不上传后端。优点：无需后端即可使用，符合"免费自托管"目标。
- * 风险：localStorage 中的 Key 会暴露在同源 XSS 攻击下。
- * 生产环境应改为后端代理转发 + AES 加密存储，前端不持有明文 Key。
+ * 安全权衡：用户自定义 API Key 存储在 localStorage（key: 'codelearn_ai_key'），
+ * 不上传后端。自定义 Key 调用不消耗平台余额，但仍会记录调用日志（is_custom_model=true）。
  */
 import type {
   AIProvider,
@@ -22,8 +21,17 @@ import {
   DEFAULT_BASE_URL,
   DEFAULT_MODEL,
 } from './OpenAICompatibleProvider'
-import { HINT_SYSTEM_PROMPT, EXPLAIN_SYSTEM_PROMPT } from './prompts'
-import { checkQuota, consumeQuota } from './QuotaService'
+import {
+  HINT_SYSTEM_PROMPT,
+  EXPLAIN_SYSTEM_PROMPT,
+  FUSION_JUDGE_PROMPT,
+} from './prompts'
+import {
+  checkBalance,
+  consumeBalance,
+  logApiUsage,
+  getFusionConfig,
+} from './QuotaService'
 
 /** localStorage 中存储自定义 Key 的键名 */
 const STORAGE_KEY = 'codelearn_ai_key'
@@ -37,9 +45,8 @@ export interface StoredAiKey {
 
 /** 未配置任何 Key 时的错误提示 */
 export const NO_KEY_ERROR = '请先在设置中配置 AI API Key。'
-/** 共享额度用尽时的错误提示 */
-export const QUOTA_EMPTY_ERROR =
-  '今日免费额度已用完，可在设置中填写自己的 API Key 继续使用。'
+/** 余额不足时的错误提示 */
+export const BALANCE_EMPTY_ERROR = '余额不足，请联系管理员充值或配置自己的 API Key。'
 
 // ---- 自定义 Key 本地存储 ----
 
@@ -86,8 +93,12 @@ export function hasCustomKey(): boolean {
 
 interface ResolvedProvider {
   provider: AIProvider
-  /** true = 用户自定义 Key（不消耗额度）；false = 平台共享 Key（消耗额度） */
+  /** true = 用户自定义 Key（不消耗余额）；false = 平台共享 Key（消耗余额） */
   isCustom: boolean
+  /** 使用的模型名 */
+  model: string
+  /** Provider 标识（用于日志） */
+  providerName: string
 }
 
 /**
@@ -105,6 +116,8 @@ export function resolveProvider(): ResolvedProvider | null {
         defaultModel: custom.model,
       }),
       isCustom: true,
+      model: custom.model,
+      providerName: custom.baseUrl,
     }
   }
   // 2. 平台共享 Key（环境变量）
@@ -119,6 +132,8 @@ export function resolveProvider(): ResolvedProvider | null {
         defaultModel: DEFAULT_MODEL,
       }),
       isCustom: false,
+      model: DEFAULT_MODEL,
+      providerName: baseUrl,
     }
   }
   return null
@@ -129,27 +144,178 @@ export function isAiConfigured(): boolean {
   return resolveProvider() !== null
 }
 
-// ---- 额度辅助 ----
+// ---- 计费辅助 ----
 
-/** 共享 Key 且有用户标识时校验额度；不足返回错误信息，否则返回 null */
-async function assertSharedQuota(
+/**
+ * 根据实际 token 用量计算成本。
+ * 目前使用保守估算，未来可对接 models.dev 价格数据精确计算。
+ */
+function calculateActualCost(
+  inputTokens: number,
+  outputTokens: number,
+): number {
+  // 保守估算：输入 $2/1M，输出 $8/1M
+  const inputCost = (inputTokens / 1_000_000) * 2
+  const outputCost = (outputTokens / 1_000_000) * 8
+  return inputCost + outputCost
+}
+
+/** 共享 Key 且有用户标识时校验余额；不足返回错误信息，否则返回 null */
+async function assertBalance(
   resolved: ResolvedProvider,
   userId?: string,
+  estimatedCost = 0.001,
 ): Promise<string | null> {
-  if (resolved.isCustom) return null // 自定义 Key 不消耗额度
+  if (resolved.isCustom) return null // 自定义 Key 不消耗余额
   if (!userId) return null // 无用户标识无法计量，允许使用
-  const remaining = await checkQuota(userId)
-  if (remaining <= 0) return QUOTA_EMPTY_ERROR
+  const balance = await checkBalance(userId)
+  if (balance <= 0 || balance < estimatedCost) return BALANCE_EMPTY_ERROR
   return null
 }
 
-/** 共享 Key 且有用户标识时扣除 1 次额度 */
-async function consumeSharedQuota(
+/** 记录调用并扣减余额 */
+async function recordAndCharge(
   resolved: ResolvedProvider,
-  userId?: string,
+  userId: string | undefined,
+  callType: string,
+  result: ChatResult,
 ): Promise<void> {
-  if (resolved.isCustom || !userId) return
-  await consumeQuota(userId, 1)
+  if (!userId) return
+
+  const inputTokens = result.inputTokens ?? 0
+  const outputTokens = result.outputTokens ?? 0
+  const cost = calculateActualCost(inputTokens, outputTokens)
+
+  // 记录调用日志（自定义和共享都记录）
+  await logApiUsage({
+    userId,
+    callType,
+    provider: resolved.providerName,
+    model: result.model ?? resolved.model,
+    inputTokens,
+    outputTokens,
+    cost,
+    isCustomModel: resolved.isCustom,
+  })
+
+  // 仅共享 Key 扣减余额
+  if (!resolved.isCustom && cost > 0) {
+    await consumeBalance(userId, cost)
+  }
+}
+
+// ---- 融合模式 ----
+
+/** 融合模式：多个候选模型并行回答，裁判模型选出最佳 */
+async function chatWithFusion(
+  messages: ChatMessage[],
+  primaryResolved: ResolvedProvider,
+  callType: string,
+  userId?: string,
+): Promise<ChatResult> {
+  const fusionConfig = await getFusionConfig()
+  if (!fusionConfig.enabled || fusionConfig.candidateModels.length === 0) {
+    // 融合未启用或无候选模型，走普通调用
+    return primaryResolved.provider.chat(messages)
+  }
+
+  // 并行调用所有候选模型
+  const candidateResults = await Promise.all(
+    fusionConfig.candidateModels.map(async (modelId) => {
+      // 候选模型用同一个 provider（共享 Key），只是切换模型
+      const result = await primaryResolved.provider.chat(messages, {
+        model: modelId,
+      })
+      return { modelId, result }
+    }),
+  )
+
+  // 过滤掉出错的候选
+  const validResults = candidateResults.filter(
+    (r) => !r.result.error && r.result.content,
+  )
+
+  if (validResults.length === 0) {
+    // 全部失败，返回第一个错误
+    return candidateResults[0]?.result ?? { content: '', error: '所有候选模型均调用失败' }
+  }
+
+  if (validResults.length === 1) {
+    // 只有一个成功，直接返回
+    const winner = validResults[0]
+    await recordAndCharge(primaryResolved, userId, callType, winner.result)
+    return winner.result
+  }
+
+  // 调用裁判模型评估
+  const judgeMessages: ChatMessage[] = [
+    { role: 'system', content: FUSION_JUDGE_PROMPT },
+    {
+      role: 'user',
+      content: validResults
+        .map(
+          (r, i) =>
+            `--- 回答 ${i}（模型：${r.modelId}）---\n${r.result.content}`,
+        )
+        .join('\n\n'),
+    },
+  ]
+
+  const judgeResult = await primaryResolved.provider.chat(judgeMessages, {
+    model: fusionConfig.judgeModel || undefined,
+    temperature: 0,
+  })
+
+  // 尝试解析裁判结果
+  const judged = parseJudgeResult(judgeResult.content)
+  if (judged && judged.bestIndex >= 0 && judged.bestIndex < validResults.length) {
+    const winner = validResults[judged.bestIndex]
+    // 记录所有候选调用 + 裁判调用
+    for (const candidate of validResults) {
+      await recordAndCharge(primaryResolved, userId, `${callType}_fusion_candidate`, candidate.result)
+    }
+    await recordAndCharge(primaryResolved, userId, `${callType}_fusion_judge`, judgeResult)
+    return {
+      content: judged.mergedAnswer || winner.result.content,
+      inputTokens: winner.result.inputTokens,
+      outputTokens: winner.result.outputTokens,
+      model: winner.modelId,
+    }
+  }
+
+  // 裁判解析失败，返回第一个有效结果
+  const winner = validResults[0]
+  for (const candidate of validResults) {
+    await recordAndCharge(primaryResolved, userId, `${callType}_fusion_candidate`, candidate.result)
+  }
+  await recordAndCharge(primaryResolved, userId, `${callType}_fusion_judge`, judgeResult)
+  return winner.result
+}
+
+/** 解析裁判模型的 JSON 输出 */
+function parseJudgeResult(content: string): {
+  bestIndex: number
+  reason: string
+  mergedAnswer: string
+} | null {
+  try {
+    // 尝试提取 JSON
+    const jsonMatch = content.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) return null
+    const parsed = JSON.parse(jsonMatch[0]) as {
+      bestIndex?: unknown
+      reason?: unknown
+      mergedAnswer?: unknown
+    }
+    return {
+      bestIndex: typeof parsed.bestIndex === 'number' ? parsed.bestIndex : 0,
+      reason: typeof parsed.reason === 'string' ? parsed.reason : '',
+      mergedAnswer:
+        typeof parsed.mergedAnswer === 'string' ? parsed.mergedAnswer : '',
+    }
+  } catch {
+    return null
+  }
 }
 
 // ---- 业务方法 ----
@@ -183,8 +349,8 @@ export class AIService {
   async getHint(params: GetHintParams): Promise<ChatResult> {
     const resolved = resolveProvider()
     if (!resolved) return { content: '', error: NO_KEY_ERROR }
-    const quotaError = await assertSharedQuota(resolved, params.userId)
-    if (quotaError) return { content: '', error: quotaError }
+    const balanceError = await assertBalance(resolved, params.userId)
+    if (balanceError) return { content: '', error: balanceError }
 
     const messages: ChatMessage[] = [
       { role: 'system', content: HINT_SYSTEM_PROMPT },
@@ -193,11 +359,10 @@ export class AIService {
         content: `课程：${params.lessonTitle}\n这是我第 ${params.attemptCount} 次请求提示。\n\n我目前的代码：\n\`\`\`\n${params.userCode || '(还没有写代码)'}\n\`\`\`\n\n请给我一个提示。`,
       },
     ]
-    const result = await resolved.provider.chat(messages, {
-      temperature: 0.5,
-    })
+
+    const result = await chatWithFusion(messages, resolved, 'hint', params.userId)
     if (!result.error) {
-      await consumeSharedQuota(resolved, params.userId)
+      await recordAndCharge(resolved, params.userId, 'hint', result)
     }
     return result
   }
@@ -206,8 +371,8 @@ export class AIService {
   async explainCode(params: ExplainCodeParams): Promise<ChatResult> {
     const resolved = resolveProvider()
     if (!resolved) return { content: '', error: NO_KEY_ERROR }
-    const quotaError = await assertSharedQuota(resolved, params.userId)
-    if (quotaError) return { content: '', error: quotaError }
+    const balanceError = await assertBalance(resolved, params.userId)
+    if (balanceError) return { content: '', error: balanceError }
 
     const messages: ChatMessage[] = [
       { role: 'system', content: EXPLAIN_SYSTEM_PROMPT },
@@ -216,11 +381,10 @@ export class AIService {
         content: `请解释以下 ${params.language} 代码：\n\`\`\`${params.language}\n${params.code}\n\`\`\``,
       },
     ]
-    const result = await resolved.provider.chat(messages, {
-      temperature: 0.3,
-    })
+
+    const result = await chatWithFusion(messages, resolved, 'explain', params.userId)
     if (!result.error) {
-      await consumeSharedQuota(resolved, params.userId)
+      await recordAndCharge(resolved, params.userId, 'explain', result)
     }
     return result
   }
@@ -233,17 +397,34 @@ export class AIService {
     if (!resolved) {
       return { exercise: { prompt: '', starterCode: '' }, error: NO_KEY_ERROR }
     }
-    const quotaError = await assertSharedQuota(resolved, params.userId)
-    if (quotaError) {
-      return { exercise: { prompt: '', starterCode: '' }, error: quotaError }
+    const balanceError = await assertBalance(resolved, params.userId)
+    if (balanceError) {
+      return { exercise: { prompt: '', starterCode: '' }, error: balanceError }
     }
+
+    // 练习题生成不走融合模式（需要结构化 JSON 输出）
     const result = await resolved.provider.generateExercise(
       params.topic,
       params.level,
       params.language,
     )
     if (!result.error) {
-      await consumeSharedQuota(resolved, params.userId)
+      // generateExercise 内部已调用 chat，记录日志
+      // 由于 generateExercise 不返回 token 信息，这里记录基础日志
+      await logApiUsage({
+        userId: params.userId ?? '',
+        callType: 'exercise',
+        provider: resolved.providerName,
+        model: resolved.model,
+        inputTokens: 0,
+        outputTokens: 0,
+        cost: 0,
+        isCustomModel: resolved.isCustom,
+      })
+      if (!resolved.isCustom) {
+        // 共享 Key 扣减估算费用
+        await consumeBalance(params.userId ?? '', 0.001)
+      }
     }
     return result
   }

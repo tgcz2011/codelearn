@@ -21,6 +21,7 @@ export {
   HINT_SYSTEM_PROMPT,
   EXPLAIN_SYSTEM_PROMPT,
   EXERCISE_SYSTEM_PROMPT,
+  FUSION_JUDGE_PROMPT,
 } from './prompts'
 export {
   AIService,
@@ -32,7 +33,7 @@ export {
   clearCustomKey,
   hasCustomKey,
   NO_KEY_ERROR,
-  QUOTA_EMPTY_ERROR,
+  BALANCE_EMPTY_ERROR,
 } from './AIService'
 export type {
   StoredAiKey,
@@ -41,11 +42,16 @@ export type {
   GenerateExerciseParams,
 } from './AIService'
 export {
+  DEFAULT_BALANCE,
   DEFAULT_DAILY_LIMIT,
   getDailyLimit,
   getCachedDailyLimit,
   checkQuota,
+  checkBalance,
   consumeQuota,
+  consumeBalance,
+  logApiUsage,
+  getFusionConfig,
   getQuotaStatus,
   todayStr,
 } from './QuotaService'

@@ -1,17 +1,18 @@
 /**
  * 管理员后台框架
  *
- * 侧边栏导航：用户管理、数据库管理、课程管理、额度配置。
+ * 侧边栏导航：用户管理（余额/封禁）、课程管理、额度配置、模型配置、数据库管理。
  * 内容区按当前选中菜单渲染对应组件。
  */
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import UserManagement from './UserManagement'
+import BalanceManagement from './BalanceManagement'
 import DatabaseManagement from './DatabaseManagement'
 import CourseManagement from './CourseManagement'
 import QuotaConfig from './QuotaConfig'
+import ModelConfig from './ModelConfig'
 
-type MenuKey = 'users' | 'database' | 'courses' | 'quota'
+type MenuKey = 'users' | 'database' | 'courses' | 'quota' | 'models'
 
 interface MenuItem {
   key: MenuKey
@@ -20,9 +21,10 @@ interface MenuItem {
 }
 
 const MENUS: MenuItem[] = [
-  { key: 'users', label: '用户管理', desc: '查看与禁用用户、重置额度' },
+  { key: 'users', label: '用户与额度', desc: '查看用户余额、充值、设置额度、封禁/解封' },
   { key: 'courses', label: '课程管理', desc: '查看课程统计、控制可见性' },
-  { key: 'quota', label: '额度配置', desc: '配置 AI 每日免费额度上限' },
+  { key: 'quota', label: '额度配置', desc: '配置新用户默认额度' },
+  { key: 'models', label: '模型配置', desc: 'AI 融合、代码执行计价、models.dev 同步、自定义模型' },
   { key: 'database', label: '数据库管理', desc: '重置数据库（测试用）' },
 ]
 
@@ -33,13 +35,15 @@ export default function AdminPage() {
 
   let content: ReactNode
   if (active === 'users') {
-    content = <UserManagement />
+    content = <BalanceManagement />
   } else if (active === 'database') {
     content = <DatabaseManagement />
   } else if (active === 'courses') {
     content = <CourseManagement />
   } else if (active === 'quota') {
     content = <QuotaConfig />
+  } else if (active === 'models') {
+    content = <ModelConfig />
   }
 
   return (

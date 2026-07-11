@@ -22,6 +22,12 @@ export interface ChatOptions {
 export interface ChatResult {
   content: string
   error?: string
+  /** 输入 token 数（用于计费统计） */
+  inputTokens?: number
+  /** 输出 token 数（用于计费统计） */
+  outputTokens?: number
+  /** 使用的模型名称 */
+  model?: string
 }
 
 /** 生成的练习题结构 */

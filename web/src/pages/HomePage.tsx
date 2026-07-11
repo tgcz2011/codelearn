@@ -54,6 +54,9 @@ export default function HomePage() {
             <Link to="/review">
               <Button variant="secondary">复习</Button>
             </Link>
+            <Link to="/stats">
+              <Button variant="secondary">用量统计</Button>
+            </Link>
             <Link to="/settings">
               <Button variant="secondary">个人设置</Button>
             </Link>
