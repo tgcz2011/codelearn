@@ -88,3 +88,22 @@ export interface UserApiKey {
   encrypted_key: string
   created_at: string
 }
+
+/** 遗忘曲线复习计划条目（SM-2 间隔重复算法） */
+export interface ReviewScheduleItem {
+  id: string
+  user_id: string
+  lesson_id: string
+  /** 难度系数，初始 2.5，根据回忆质量调整 */
+  easiness_factor: number
+  /** 下次复习间隔（天） */
+  interval_days: number
+  /** 已成功复习次数 */
+  repetition_count: number
+  /** 下次复习日期，YYYY-MM-DD */
+  next_review_date: string
+  /** 上次复习日期，YYYY-MM-DD */
+  last_review_date: string | null
+  /** 最近一次回忆质量评分 0-5 */
+  quality: number | null
+}

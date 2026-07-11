@@ -15,11 +15,15 @@ export {
   getCourseBySlug,
   findLesson,
   getFlatLessons,
+  normalizeLesson,
 } from '../../../courses'
 export type {
   CourseContent,
   ChapterContent,
   LessonContent,
   Exercise,
+  Example,
+  ExerciseType,
   CourseDifficulty,
+  LegacyExercise,
 } from '../../../courses'

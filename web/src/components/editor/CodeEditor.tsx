@@ -14,6 +14,10 @@ const MONACO_LANGUAGE_MAP: Record<string, string> = {
   typescript: 'typescript',
   python: 'python',
   go: 'go',
+  java: 'java',
+  c: 'c',
+  cpp: 'cpp',
+  rust: 'rust',
 }
 
 /** 解析业务 languageId 为 Monaco 支持的语言 id，未知语言回退到 plaintext */

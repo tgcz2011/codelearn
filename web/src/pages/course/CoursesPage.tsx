@@ -18,6 +18,9 @@ const LANGUAGE_ICONS: Record<string, string> = {
   typescript: '🔷',
   python: '🐍',
   go: '🐹',
+  cpp: '⚙️',
+  java: '☕',
+  rust: '🦀',
 }
 
 /** 难度标签：文案 + 颜色 */

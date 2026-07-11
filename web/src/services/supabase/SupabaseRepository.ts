@@ -11,6 +11,7 @@ import type {
   AiQuota,
   Course,
   Lesson,
+  ReviewScheduleItem,
   UserApiKey,
   UserProfile,
   UserProgress,
@@ -80,6 +81,20 @@ interface ApiKeyRow {
   created_at: string
 }
 
+interface ReviewScheduleRow {
+  id: string
+  user_id: string
+  lesson_id: string
+  easiness_factor: number
+  interval_days: number
+  repetition_count: number
+  next_review_date: string
+  last_review_date: string | null
+  quality: number | null
+  created_at: string
+  updated_at: string
+}
+
 // ---- 映射函数 ----
 const toProfile = (r: ProfileRow): UserProfile => ({ ...r })
 const toLesson = (r: LessonRow): Lesson => ({ ...r })
@@ -99,6 +114,17 @@ const toCourse = (r: CourseRow): Course => ({
 const toProgress = (r: ProgressRow): UserProgress => ({ ...r })
 const toQuota = (r: QuotaRow): AiQuota => ({ ...r })
 const toApiKey = (r: ApiKeyRow): UserApiKey => ({ ...r })
+const toReview = (r: ReviewScheduleRow): ReviewScheduleItem => ({
+  id: r.id,
+  user_id: r.user_id,
+  lesson_id: r.lesson_id,
+  easiness_factor: r.easiness_factor,
+  interval_days: r.interval_days,
+  repetition_count: r.repetition_count,
+  next_review_date: r.next_review_date,
+  last_review_date: r.last_review_date,
+  quality: r.quality,
+})
 
 export class SupabaseRepository implements DataRepository {
   // ---- 用户 ----
@@ -277,6 +303,53 @@ export class SupabaseRepository implements DataRepository {
         { onConflict: 'user_id,provider' },
       )
     if (error) throw error
+  }
+
+  // ---- 遗忘曲线复习计划 ----
+  async getAllReviews(userId: string): Promise<ReviewScheduleItem[]> {
+    const { data, error } = await supabase
+      .from('review_schedule')
+      .select('*')
+      .eq('user_id', userId)
+      .order('next_review_date', { ascending: true })
+    if (error) throw error
+    return (data as ReviewScheduleRow[]).map(toReview)
+  }
+
+  async getDueReviews(userId: string): Promise<ReviewScheduleItem[]> {
+    const today = new Date().toISOString().slice(0, 10)
+    const { data, error } = await supabase
+      .from('review_schedule')
+      .select('*')
+      .eq('user_id', userId)
+      .lte('next_review_date', today)
+      .order('next_review_date', { ascending: true })
+    if (error) throw error
+    return (data as ReviewScheduleRow[]).map(toReview)
+  }
+
+  async upsertReview(
+    userId: string,
+    lessonId: string,
+    data: Partial<ReviewScheduleItem>,
+  ): Promise<ReviewScheduleItem> {
+    const payload = {
+      user_id: userId,
+      lesson_id: lessonId,
+      easiness_factor: data.easiness_factor,
+      interval_days: data.interval_days,
+      repetition_count: data.repetition_count,
+      next_review_date: data.next_review_date,
+      last_review_date: data.last_review_date,
+      quality: data.quality,
+    }
+    const { data: row, error } = await supabase
+      .from('review_schedule')
+      .upsert(payload, { onConflict: 'user_id,lesson_id' })
+      .select('*')
+      .single()
+    if (error) throw error
+    return toReview(row as ReviewScheduleRow)
   }
 
   // ---- 数据库管理 ----

@@ -12,12 +12,14 @@ import { useState, useEffect, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getCourseBySlug } from '@/courses'
 import { useProgressStore } from '@/store/progressStore'
+import CourseSidebar from '@/components/course/CourseSidebar'
 
 export function CourseDetailPage() {
   const { slug = '' } = useParams<{ slug: string }>()
   const course = useMemo(() => getCourseBySlug(slug), [slug])
 
   const [activeChapterIdx, setActiveChapterIdx] = useState(0)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const loadProgress = useProgressStore((s) => s.loadProgress)
   const isCompleted = useProgressStore((s) => s.isCompleted)
@@ -62,15 +64,31 @@ export function CourseDetailPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
+      <CourseSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
       {/* 顶部课程信息 */}
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-6xl px-6 py-6">
-          <Link
-            to="/courses"
-            className="text-sm text-slate-400 hover:text-slate-600"
-          >
-            ← 课程列表
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              aria-label="打开课程目录"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+              目录
+            </button>
+            <span className="text-slate-300">|</span>
+            <Link
+              to="/courses"
+              className="text-sm text-slate-400 hover:text-slate-600"
+            >
+              ← 课程列表
+            </Link>
+          </div>
           <div className="mt-3 flex items-end justify-between">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">{course.title}</h1>

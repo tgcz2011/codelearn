@@ -8,6 +8,7 @@ import type {
   AiQuota,
   Course,
   Lesson,
+  ReviewScheduleItem,
   UserApiKey,
   UserProfile,
   UserProgress,
@@ -52,6 +53,18 @@ export interface DataRepository {
     provider: string,
     encryptedKey: string,
   ): Promise<void>
+
+  // ---- 遗忘曲线复习计划 ----
+  /** 加载某用户的全部复习条目 */
+  getAllReviews(userId: string): Promise<ReviewScheduleItem[]>
+  /** 加载某用户到期需要复习的条目（next_review_date <= today） */
+  getDueReviews(userId: string): Promise<ReviewScheduleItem[]>
+  /** 新增或更新复习条目（按 user_id + lesson_id 去重） */
+  upsertReview(
+    userId: string,
+    lessonId: string,
+    data: Partial<ReviewScheduleItem>,
+  ): Promise<ReviewScheduleItem>
 
   // ---- 数据库管理（仅管理员） ----
   /** 重置数据库：清空所有用户进度、AI额度、非管理员用户 */

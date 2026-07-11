@@ -39,6 +39,10 @@ const COMPILER_MAP: Record<string, string> = {
   python: 'python-3.14',
   go: 'go-1.26',
   typescript: 'typescript-deno',
+  java: 'java-jdk',
+  c: 'c-gcc',
+  cpp: 'cpp-gcc',
+  rust: 'rust-1.87',
 }
 
 /** 默认超时（OnlineCompiler.io 上限 30 秒） */
@@ -139,6 +143,10 @@ export class OnlineCompilerRunner extends RemoteRunner {
 export const pythonOnlineCompiler = new OnlineCompilerRunner('python', 'Python', COMPILER_MAP.python)
 export const goOnlineCompiler = new OnlineCompilerRunner('go', 'Go', COMPILER_MAP.go)
 export const tsOnlineCompiler = new OnlineCompilerRunner('typescript', 'TypeScript', COMPILER_MAP.typescript)
+export const javaOnlineCompiler = new OnlineCompilerRunner('java', 'Java', COMPILER_MAP.java)
+export const cOnlineCompiler = new OnlineCompilerRunner('c', 'C', COMPILER_MAP.c)
+export const cppOnlineCompiler = new OnlineCompilerRunner('cpp', 'C++', COMPILER_MAP.cpp)
+export const rustOnlineCompiler = new OnlineCompilerRunner('rust', 'Rust', COMPILER_MAP.rust)
 
 /**
  * OnlineCompiler 是否可用。

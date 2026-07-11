@@ -17,6 +17,7 @@ import HomePage from '@/pages/HomePage'
 import CoursesPage from '@/pages/course/CoursesPage'
 import CourseDetailPage from '@/pages/course/CourseDetailPage'
 import LessonPage from '@/pages/course/LessonPage'
+import ReviewPage from '@/pages/review/ReviewPage'
 import SettingsPage from '@/pages/SettingsPage'
 import AdminPage from '@/pages/admin/AdminPage'
 import NotFoundPage from '@/pages/NotFoundPage'
@@ -58,6 +59,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <LessonPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/review"
+        element={
+          <ProtectedRoute>
+            <ReviewPage />
           </ProtectedRoute>
         }
       />

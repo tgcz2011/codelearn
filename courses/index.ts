@@ -11,6 +11,9 @@ import { javascriptCourse } from './javascript'
 import { typescriptCourse } from './typescript'
 import { pythonCourse } from './python'
 import { goCourse } from './go'
+import { cppCourse } from './cpp'
+import { javaCourse } from './java'
+import { rustCourse } from './rust'
 
 /** 全部课程列表 */
 export const courses: CourseContent[] = [
@@ -20,6 +23,9 @@ export const courses: CourseContent[] = [
   typescriptCourse,
   pythonCourse,
   goCourse,
+  cppCourse,
+  javaCourse,
+  rustCourse,
 ]
 
 /** 按 slug 查找课程 */
@@ -62,4 +68,5 @@ export function getFlatLessons(course: CourseContent): {
   return result
 }
 
-export type { CourseContent, ChapterContent, LessonContent, Exercise, CourseDifficulty } from './types'
+export type { CourseContent, ChapterContent, LessonContent, Exercise, Example, ExerciseType, CourseDifficulty, LegacyExercise } from './types'
+export { normalizeLesson } from './types'

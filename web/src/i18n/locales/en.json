@@ -28,6 +28,7 @@
   "nav": {
     "home": "Home",
     "courses": "Courses",
+    "review": "Review",
     "admin": "Admin",
     "settings": "Settings",
     "profile": "Profile",

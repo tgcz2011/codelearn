@@ -9,6 +9,7 @@ export type {
   Course,
   CourseDifficulty,
   Lesson,
+  ReviewScheduleItem,
   UserApiKey,
   UserProfile,
   UserProgress,

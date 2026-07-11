@@ -51,6 +51,9 @@ export default function HomePage() {
             <Link to="/courses">
               <Button>进入课程</Button>
             </Link>
+            <Link to="/review">
+              <Button variant="secondary">复习</Button>
+            </Link>
             <Link to="/settings">
               <Button variant="secondary">个人设置</Button>
             </Link>

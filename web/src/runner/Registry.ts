@@ -3,7 +3,7 @@ import { htmlWasmRunner } from './wasm/HtmlWasmRunner'
 import { jsWasmRunner } from './wasm/JsWasmRunner'
 import { tsWasmRunner } from './wasm/TsWasmRunner'
 import { pythonWasmRunner } from './wasm/PythonWasmRunner'
-import { pythonOnlineCompiler, goOnlineCompiler, tsOnlineCompiler, isOnlineCompilerAvailable } from './remote/OnlineCompilerRunner'
+import { pythonOnlineCompiler, goOnlineCompiler, tsOnlineCompiler, javaOnlineCompiler, cOnlineCompiler, cppOnlineCompiler, rustOnlineCompiler, isOnlineCompilerAvailable } from './remote/OnlineCompilerRunner'
 import { createNativeRunners } from './native'
 import type { RuntimeInfo } from './native'
 
@@ -40,6 +40,10 @@ register({ languageId: 'javascript', displayName: 'JavaScript', wasm: jsWasmRunn
 register({ languageId: 'typescript', displayName: 'TypeScript', wasm: tsWasmRunner, remote: tsOnlineCompiler })
 register({ languageId: 'python', displayName: 'Python', wasm: pythonWasmRunner, remote: pythonOnlineCompiler })
 register({ languageId: 'go', displayName: 'Go', remote: goOnlineCompiler })
+register({ languageId: 'java', displayName: 'Java', remote: javaOnlineCompiler })
+register({ languageId: 'c', displayName: 'C', remote: cOnlineCompiler })
+register({ languageId: 'cpp', displayName: 'C++', remote: cppOnlineCompiler })
+register({ languageId: 'rust', displayName: 'Rust', remote: rustOnlineCompiler })
 
 /**
  * 按 languageId + 运行环境选择 runner。

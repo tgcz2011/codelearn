@@ -69,11 +69,17 @@ export const useAuthStore = create<AuthState>()(
           // 同步进度 store 的 userId，启动实时同步 + 全量加载进度
           const { useProgressStore } = await import('./progressStore')
           useProgressStore.getState().setUserId(session.user.id)
+          // 同步复习 store 的 userId，加载复习计划 + 订阅实时变更
+          const { useReviewStore } = await import('./reviewStore')
+          useReviewStore.getState().setUserId(session.user.id)
         } else {
           set({ user: null, isAdmin: false, loading: false })
           // 退出登录：重置进度 store 为本地模式
           const { useProgressStore } = await import('./progressStore')
           useProgressStore.getState().setUserId('local-user')
+          // 退出登录：重置复习 store 为本地模式
+          const { useReviewStore } = await import('./reviewStore')
+          useReviewStore.getState().setUserId('local-user')
         }
       },
 

@@ -62,3 +62,17 @@ export const services: ServiceContainer = initServices()
 export function useServices(): ServiceContainer {
   return services
 }
+
+/**
+ * 获取数据仓储实例。
+ *
+ * 供业务层（如 store）通过动态 import 调用，避免循环依赖：
+ *   const { getRepository } = await import('@/services/container')
+ *   const repo = getRepository()
+ *
+ * 当 Supabase 未配置（占位 client）时，调用其方法会抛网络错误，
+ * 调用方应自行 try/catch 降级为纯本地模式。
+ */
+export function getRepository(): DataRepository {
+  return services.repository
+}
