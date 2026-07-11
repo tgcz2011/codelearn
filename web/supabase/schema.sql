@@ -320,3 +320,18 @@ drop policy if exists "apikeys_delete_self" on public.user_api_keys;
 create policy "apikeys_delete_self" on public.user_api_keys
   for delete to authenticated
   using (user_id = (select auth.uid()));
+
+-- ============================================================
+-- 安全修复：撤销 SECURITY DEFINER 函数的公开执行权限
+-- ============================================================
+
+-- 触发器函数：仅被触发器调用，不需要任何角色通过 RPC 执行
+revoke execute on function public.handle_new_user() from anon, authenticated;
+revoke execute on function public.protect_profile_admin_fields() from anon, authenticated;
+
+-- 内部辅助函数：被 RLS 策略内部调用，不需要通过 RPC 直接调用
+revoke execute on function public.is_admin() from anon, authenticated;
+
+-- 业务函数：撤销 anon（未登录用户不应调用），保留 authenticated
+revoke execute on function public.increment_ai_quota(p_user_id uuid, p_date date, p_count integer) from anon;
+revoke execute on function public.reset_ai_quota(p_user_id uuid) from anon;

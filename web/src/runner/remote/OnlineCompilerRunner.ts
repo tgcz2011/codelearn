@@ -1,24 +1,23 @@
 /**
- * OnlineCompilerRunner — 调用 OnlineCompiler.io Sync API 执行代码。
- *
- * 支持 12 种语言（Python/Go/TypeScript/C/C++/Java 等），通过 Vite dev server proxy 代理请求。
- * API key 不暴露在前端：存在 .env 的 ONLINECOMPILER_API_KEY 中（不带 VITE_ 前缀），
- * 由 vite.config.ts 的 server.proxy 自动注入 Authorization header。
- *
- * 行为：
- * - runRemote 向 /onlinecompiler-api/api/run-code-sync/ POST { compiler, code, input }
- * - 成功：返回 output/error/exitCode/durationMs，modeLabel="远程"
- * - 失败（网络错误 / 非 200 / 超时）：返回降级 RunnerOutput
+ * OnlineCompilerRunner — 通过 Supabase Edge Function 调用 OnlineCompiler.io API。
  *
  * 安全设计：
- * - 生产环境（非 dev server）无 proxy，请求会失败并降级为 WASM 或显示"服务不可用"
- * - API key 永远不出现在前端构建产物中
+ * - API key 存在 Supabase Edge Function 的 secret 中（服务端），前端永远接触不到
+ * - 前端调用 Supabase Edge Function URL，由 Edge Function 代理请求 OnlineCompiler.io
+ * - Edge Function 验证用户 JWT，仅已登录用户可调用
+ * - Web/桌面/移动端统一使用此通道，打开即用，无需用户配置任何 API key
+ *
+ * 行为：
+ * - runRemote 向 `${SUPABASE_URL}/functions/v1/run-code` POST { compiler, code, input }
+ * - 成功：返回 output/error/exitCode/durationMs，modeLabel="远程"
+ * - 失败（未登录 / 网络错误 / 非 200 / 超时）：返回降级 RunnerOutput
  */
 
 import { RemoteRunner } from '../RemoteRunner'
 import type { RunOptions, RunnerOutput } from '../types'
+import { supabase } from '@/services/supabase/client'
 
-/** OnlineCompiler.io Sync API 响应契约 */
+/** Edge Function 响应契约（与 OnlineCompiler.io Sync API 对齐） */
 interface OnlineCompilerResponse {
   output?: string
   error?: string
@@ -28,6 +27,11 @@ interface OnlineCompilerResponse {
   time?: string
   total?: string
   memory?: string
+}
+
+/** Edge Function 错误响应 */
+interface ErrorResponse {
+  error: string
 }
 
 /** languageId → OnlineCompiler compiler 标识符 映射 */
@@ -68,14 +72,27 @@ export class OnlineCompilerRunner extends RemoteRunner {
     options?: RunOptions,
   ): Promise<RunnerOutput> {
     const timeoutMs = Math.min(options?.timeoutMs ?? DEFAULT_TIMEOUT_MS, DEFAULT_TIMEOUT_MS)
+
+    // 获取当前用户的 access_token，传给 Edge Function 验证身份
+    const { data: sessionData } = await supabase.auth.getSession()
+    const accessToken = sessionData.session?.access_token
+
+    if (!accessToken) {
+      return unavailableResult('请先登录后使用代码执行功能')
+    }
+
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
 
     try {
-      // 通过 Vite dev server proxy 请求，Authorization header 由 proxy 自动注入
-      const resp = await fetch('/onlinecompiler-api/api/run-code-sync/', {
+      // 调用 Supabase Edge Function，API key 在服务端处理，前端不接触
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const resp = await fetch(`${supabaseUrl}/functions/v1/run-code`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({
           compiler: this.compiler,
           code,
@@ -85,9 +102,13 @@ export class OnlineCompilerRunner extends RemoteRunner {
       })
 
       if (!resp.ok) {
-        return unavailableResult(
-          `OnlineCompiler 返回 ${resp.status}${resp.status === 404 ? '（proxy 未配置，请使用 vite dev 而非 vite preview）' : ''}`,
-        )
+        const errData = (await resp.json().catch(() => ({}))) as ErrorResponse
+        const hint = resp.status === 401
+          ? '请重新登录'
+          : resp.status === 502
+            ? '代码执行服务暂时不可用'
+            : errData.error || `服务返回 ${resp.status}`
+        return unavailableResult(hint)
       }
 
       const data = (await resp.json()) as OnlineCompilerResponse
@@ -106,7 +127,7 @@ export class OnlineCompilerRunner extends RemoteRunner {
         return unavailableResult(`执行超时（${timeoutMs}ms）`)
       }
       return unavailableResult(
-        `OnlineCompiler 服务不可用：${e instanceof Error ? e.message : String(e)}`,
+        `代码执行服务不可用：${e instanceof Error ? e.message : String(e)}`,
       )
     } finally {
       clearTimeout(timer)
@@ -119,8 +140,10 @@ export const pythonOnlineCompiler = new OnlineCompilerRunner('python', 'Python',
 export const goOnlineCompiler = new OnlineCompilerRunner('go', 'Go', COMPILER_MAP.go)
 export const tsOnlineCompiler = new OnlineCompilerRunner('typescript', 'TypeScript', COMPILER_MAP.typescript)
 
-/** 检查 OnlineCompiler proxy 是否可用（dev server 环境下为 true） */
+/**
+ * OnlineCompiler 是否可用。
+ * 通过 Supabase Edge Function 调用，只要 Supabase 已配置即可用（不限 dev/prod）。
+ */
 export function isOnlineCompilerAvailable(): boolean {
-  // 在 dev server 下 proxy 路径可用；生产构建（vite preview / GitHub Pages）下不可用
-  return import.meta.env.DEV
+  return Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY)
 }
