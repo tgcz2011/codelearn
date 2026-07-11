@@ -1,13 +1,15 @@
 /**
  * 管理员后台框架
  *
- * 侧边栏导航：用户管理、数据库管理（已实现）、课程管理（占位）、额度配置（占位）。
+ * 侧边栏导航：用户管理、数据库管理、课程管理、额度配置。
  * 内容区按当前选中菜单渲染对应组件。
  */
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import UserManagement from './UserManagement'
 import DatabaseManagement from './DatabaseManagement'
+import CourseManagement from './CourseManagement'
+import QuotaConfig from './QuotaConfig'
 
 type MenuKey = 'users' | 'database' | 'courses' | 'quota'
 
@@ -15,14 +17,13 @@ interface MenuItem {
   key: MenuKey
   label: string
   desc: string
-  enabled: boolean
 }
 
 const MENUS: MenuItem[] = [
-  { key: 'users', label: '用户管理', desc: '查看与禁用用户、重置额度', enabled: true },
-  { key: 'database', label: '数据库管理', desc: '重置数据库（测试用）', enabled: true },
-  { key: 'courses', label: '课程管理', desc: '即将实现', enabled: false },
-  { key: 'quota', label: '额度配置', desc: '即将实现', enabled: false },
+  { key: 'users', label: '用户管理', desc: '查看与禁用用户、重置额度' },
+  { key: 'courses', label: '课程管理', desc: '查看课程统计、控制可见性' },
+  { key: 'quota', label: '额度配置', desc: '配置 AI 每日免费额度上限' },
+  { key: 'database', label: '数据库管理', desc: '重置数据库（测试用）' },
 ]
 
 export default function AdminPage() {
@@ -35,12 +36,10 @@ export default function AdminPage() {
     content = <UserManagement />
   } else if (active === 'database') {
     content = <DatabaseManagement />
-  } else {
-    content = (
-      <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
-        <p className="text-sm text-slate-500">{current.desc}</p>
-      </div>
-    )
+  } else if (active === 'courses') {
+    content = <CourseManagement />
+  } else if (active === 'quota') {
+    content = <QuotaConfig />
   }
 
   return (
@@ -70,9 +69,8 @@ export default function AdminPage() {
               <li key={m.key}>
                 <button
                   type="button"
-                  disabled={!m.enabled}
                   onClick={() => setActive(m.key)}
-                  className={`w-full rounded-md px-3 py-2 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  className={`w-full rounded-md px-3 py-2 text-left text-sm transition ${
                     active === m.key
                       ? 'bg-slate-900 text-white'
                       : 'text-slate-600 hover:bg-slate-100'

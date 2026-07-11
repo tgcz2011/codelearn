@@ -41,7 +41,9 @@ export type {
   GenerateExerciseParams,
 } from './AIService'
 export {
-  DAILY_LIMIT,
+  DEFAULT_DAILY_LIMIT,
+  getDailyLimit,
+  getCachedDailyLimit,
   checkQuota,
   consumeQuota,
   getQuotaStatus,

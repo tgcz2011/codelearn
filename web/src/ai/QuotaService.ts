@@ -1,18 +1,48 @@
 /**
- * AI 免费额度计数服务（SubTask 7.6）
+ * AI 免费额度计数服务
  *
- * 所有数据访问通过 services.repository，不直接 import @supabase/supabase-js。
  * 计费策略：
  *   - 使用用户自定义 API Key 调用：不消耗平台额度（由 AIService 在调用前判断）。
  *   - 使用平台共享 Key 调用：消耗每日额度，超额返回错误。
  *   - Supabase 未配置/不可达（本地模式）：返回无限额度，不限制使用。
  *
- * 默认每日上限 50 次（本期硬编码，后续可由管理员配置）。
+ * 每日上限由管理员在后台「额度配置」页面设置，存储在 app_settings 表。
+ * 默认 50 次/天。
  */
 import { services } from '@/services/container'
+import { supabase } from '@/services/supabase/client'
 
-/** 每日免费额度上限（硬编码） */
-export const DAILY_LIMIT = 50
+/** 默认每日免费额度上限（管理员可在后台修改） */
+export const DEFAULT_DAILY_LIMIT = 50
+
+/** 缓存的每日上限（避免每次调用都查库） */
+let cachedLimit: number | null = null
+let cacheExpiry = 0
+const CACHE_TTL = 60_000 // 1 分钟缓存
+
+/**
+ * 获取当前每日额度上限（从数据库读取，带缓存）。
+ * 后端不可达时返回默认值。
+ */
+export async function getDailyLimit(): Promise<number> {
+  if (cachedLimit !== null && Date.now() < cacheExpiry) {
+    return cachedLimit
+  }
+  try {
+    const { data, error } = await supabase.rpc('get_ai_daily_limit')
+    if (error) throw error
+    cachedLimit = typeof data === 'number' ? data : DEFAULT_DAILY_LIMIT
+    cacheExpiry = Date.now() + CACHE_TTL
+    return cachedLimit
+  } catch {
+    return DEFAULT_DAILY_LIMIT
+  }
+}
+
+/** 同步获取缓存的上限（可能为 null 表示未加载） */
+export function getCachedDailyLimit(): number {
+  return cachedLimit ?? DEFAULT_DAILY_LIMIT
+}
 
 /** UI 展示用的额度状态 */
 export interface QuotaStatus {
@@ -39,7 +69,8 @@ export async function checkQuota(userId: string): Promise<number> {
   try {
     const quota = await services.repository.getAiQuota(userId, todayStr())
     const used = quota?.count ?? 0
-    return Math.max(0, DAILY_LIMIT - used)
+    const limit = await getDailyLimit()
+    return Math.max(0, limit - used)
   } catch {
     // 后端未配置或不可达：本地模式不限制
     return Infinity
@@ -69,17 +100,18 @@ export async function getQuotaStatus(userId: string): Promise<QuotaStatus> {
   try {
     const quota = await services.repository.getAiQuota(userId, todayStr())
     const used = quota?.count ?? 0
+    const limit = await getDailyLimit()
     return {
       used,
-      limit: DAILY_LIMIT,
-      remaining: Math.max(0, DAILY_LIMIT - used),
+      limit,
+      remaining: Math.max(0, limit - used),
       unlimited: false,
     }
   } catch {
     return {
       used: 0,
-      limit: DAILY_LIMIT,
-      remaining: DAILY_LIMIT,
+      limit: getCachedDailyLimit(),
+      remaining: getCachedDailyLimit(),
       unlimited: true,
     }
   }
