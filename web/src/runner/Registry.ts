@@ -4,6 +4,7 @@ import { jsWasmRunner } from './wasm/JsWasmRunner'
 import { tsWasmRunner } from './wasm/TsWasmRunner'
 import { pythonWasmRunner } from './wasm/PythonWasmRunner'
 import { goRemoteRunner } from './remote/GoRemoteRunner'
+import { pythonOnlineCompiler, goOnlineCompiler, tsOnlineCompiler, isOnlineCompilerAvailable } from './remote/OnlineCompilerRunner'
 import { createNativeRunners } from './native'
 import type { RuntimeInfo } from './native'
 
@@ -33,17 +34,19 @@ function register(entry: LanguageEntry): void {
   registry.set(entry.languageId, entry)
 }
 
-// 本期注册：html/js/ts/python 的 WasmRunner，go 的 RemoteRunner 占位
+// 注册：html/js 用 WasmRunner；python/go/typescript 同时注册 WasmRunner 和 OnlineCompiler remote
+// OnlineCompiler 通过 Vite dev server proxy 调用，仅在 dev 模式下可用
 register({ languageId: 'html', displayName: 'HTML', wasm: htmlWasmRunner })
 register({ languageId: 'javascript', displayName: 'JavaScript', wasm: jsWasmRunner })
-register({ languageId: 'typescript', displayName: 'TypeScript', wasm: tsWasmRunner })
-register({ languageId: 'python', displayName: 'Python', wasm: pythonWasmRunner })
-register({ languageId: 'go', displayName: 'Go', remote: goRemoteRunner })
+register({ languageId: 'typescript', displayName: 'TypeScript', wasm: tsWasmRunner, remote: tsOnlineCompiler })
+register({ languageId: 'python', displayName: 'Python', wasm: pythonWasmRunner, remote: pythonOnlineCompiler })
+register({ languageId: 'go', displayName: 'Go', remote: goOnlineCompiler })
 
 /**
  * 按 languageId + 运行环境选择 runner。
  *
- * - web 环境：直接用 WasmRunner；go 无 wasm 实现，回退 RemoteRunner 占位
+ * - web 环境：如果 OnlineCompiler 可用（dev server proxy），优先 remote；
+ *   否则用 WasmRunner；go 无 wasm 实现，回退 RemoteRunner
  * - desktop 环境：优先 NativeRunner（Task 8 注入），没有回退 WasmRunner；
  *   go 回退 RemoteRunner
  *
@@ -56,6 +59,10 @@ export function getRunner(
   const entry = registry.get(languageId)
   if (!entry) return undefined
   if (env === 'web') {
+    // dev 模式下 OnlineCompiler proxy 可用时优先用 remote（比 WASM 更快更可靠）
+    if (isOnlineCompilerAvailable() && entry.remote) {
+      return entry.remote
+    }
     return entry.wasm ?? entry.remote
   }
   return entry.native ?? entry.wasm ?? entry.remote

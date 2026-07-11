@@ -36,6 +36,9 @@ src-tauri/target/
 src-tauri/gen/
 src-tauri/Cargo.lock
 
+# Supabase CLI 临时文件
+supabase/.temp/
+
 # Go
 go-runner/bin/
 *.exe
