@@ -39,6 +39,10 @@ jobs:
 
       - name: Build web (tsc + Vite)
         run: pnpm build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_DATA_BACKEND: supabase
 
       - name: Package web/dist
         working-directory: web/dist
@@ -85,6 +89,9 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_DATA_BACKEND: supabase
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
@@ -128,6 +135,9 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_DATA_BACKEND: supabase
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -198,6 +208,10 @@ jobs:
 
       - name: Build Android APK (unsigned)
         run: cargo tauri android build --apk
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_DATA_BACKEND: supabase
 
       - name: Upload Android artifacts
         if: always()

@@ -10,17 +10,19 @@
     "beforeBuildCommand": "pnpm --filter web build"
   },
   "app": {
-    "windows": [],
-    "security": {
-      "csp": {
-        "default-src": "'self' http://localhost:9527 http://ipc.localhost",
-        "connect-src": "'self' ipc: http://ipc.localhost http://localhost:9527 https://*.supabase.co https://api.onlinecompiler.io",
-        "img-src": "'self' data: https: blob:",
-        "style-src": "'self' 'unsafe-inline'",
-        "script-src": "'self' 'wasm-unsafe-eval'",
-        "font-src": "'self' data:",
-        "worker-src": "'self' blob:"
+    "windows": [
+      {
+        "title": "CodeLearn",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false
       }
+    ],
+    "security": {
+      "csp": null
     }
   },
   "bundle": {
@@ -32,9 +34,6 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ],
-    "macOS": {
-      "entitlements": "entitlements.plist"
-    }
+    ]
   }
 }
