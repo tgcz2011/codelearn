@@ -22,7 +22,15 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": {
+        "default-src": "'self' tauri: asset:",
+        "connect-src": "'self' ipc: http://ipc.localhost https://*.supabase.co https://api.onlinecompiler.io",
+        "img-src": "'self' asset: data: https:",
+        "style-src": "'self' 'unsafe-inline'",
+        "script-src": "'self' 'wasm-unsafe-eval'",
+        "font-src": "'self' data:",
+        "worker-src": "'self' blob:"
+      }
     }
   },
   "bundle": {
@@ -34,6 +42,9 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "entitlements": "entitlements.plist"
+    }
   }
 }
