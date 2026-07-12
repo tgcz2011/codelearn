@@ -14,6 +14,8 @@ import { goCourse } from './go'
 import { cppCourse } from './cpp'
 import { javaCourse } from './java'
 import { rustCourse } from './rust'
+import { rubyCourse } from './ruby'
+import { phpCourse } from './php'
 
 /** 全部课程列表 */
 export const courses: CourseContent[] = [
@@ -26,6 +28,8 @@ export const courses: CourseContent[] = [
   cppCourse,
   javaCourse,
   rustCourse,
+  rubyCourse,
+  phpCourse,
 ]
 
 /** 按 slug 查找课程 */

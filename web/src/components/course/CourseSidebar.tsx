@@ -35,6 +35,8 @@ const LANGUAGE_ICONS: Record<string, string> = {
   rust: '🦀',
   c: '🔧',
   'c++': '⚙️',
+  ruby: '💎',
+  php: '🐘',
 }
 
 export default function CourseSidebar({ open, onClose }: CourseSidebarProps) {

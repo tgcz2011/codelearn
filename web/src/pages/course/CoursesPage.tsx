@@ -21,6 +21,8 @@ const LANGUAGE_ICONS: Record<string, string> = {
   cpp: '⚙️',
   java: '☕',
   rust: '🦀',
+  ruby: '💎',
+  php: '🐘',
 }
 
 /** 难度标签：文案 + 颜色 */
@@ -41,6 +43,12 @@ export function CoursesPage() {
       {/* 页头 */}
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-6xl px-6 py-10">
+          <Link
+            to="/"
+            className="mb-4 inline-block text-sm text-slate-500 hover:text-slate-800 hover:underline"
+          >
+            ← 返回首页
+          </Link>
           <h1 className="text-3xl font-bold text-slate-800">课程中心</h1>
           <p className="mt-2 text-slate-500">
             选择一门语言开始学习，从入门到实战，边学边练。

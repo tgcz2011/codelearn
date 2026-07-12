@@ -10,6 +10,7 @@
  * 通过 supabase.rpc 调用后端聚合函数，前端不再二次聚合。
  */
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '@/services/supabase/client'
 import { useAuthStore } from '@/store/authStore'
 import Button from '@/components/ui/Button'
@@ -163,8 +164,20 @@ export default function StatsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* 顶部控制栏 */}
+    <div className="min-h-screen bg-slate-50">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+          <Link
+            to="/"
+            className="text-sm text-slate-500 hover:text-slate-800 hover:underline"
+          >
+            ← 返回
+          </Link>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-4 py-10">
+        <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-4">
           <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-700">
@@ -317,6 +330,8 @@ export default function StatsPage() {
           </div>
         )}
       </div>
+        </div>
+      </main>
     </div>
   )
 }

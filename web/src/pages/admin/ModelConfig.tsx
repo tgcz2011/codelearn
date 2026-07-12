@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '@/services/supabase/client'
 import Button from '@/components/ui/Button'
 import Spinner from '@/components/ui/Spinner'
+import { fetchModelCatalog, getMaxPriceModels } from '@/services/ModelCatalog'
 
 interface FusionConfig {
   enabled: boolean
@@ -218,22 +219,11 @@ export default function ModelConfig() {
     setDevLoading(true)
     setDevError(null)
     try {
-      const res = await fetch('https://models.dev/api.json')
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = (await res.json()) as unknown
-      let count = 0
-      if (Array.isArray(data)) {
-        count = data.length
-      } else if (typeof data === 'object' && data !== null) {
-        // 可能是 { providers: [...] } 或 { models: {...} } 等
-        const obj = data as Record<string, unknown>
-        const arr = obj.models ?? obj.providers ?? obj.data
-        if (Array.isArray(arr)) count = arr.length
-        else if (typeof arr === 'object' && arr !== null) {
-          count = Object.keys(arr).length
-        }
-      }
-      setDevCount(count)
+      // 复用 ModelCatalog 的解析逻辑：fetchModelCatalog 会拉取并拍平 models.dev API，
+      // getMaxPriceModels 再按模型名跨 Provider 聚合（取最大价），得到最终可用模型数
+      const all = await fetchModelCatalog()
+      const aggregated = getMaxPriceModels(all)
+      setDevCount(aggregated.length)
     } catch (e) {
       const msg =
         typeof e === 'object' && e !== null && 'message' in e
